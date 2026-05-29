@@ -13,7 +13,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # TOKEN
 # ====================================
 
-TOKEN = ""
+TOKEN = "8692576209:AAGqLuym96IhMsmzkhoRg1J2cc3kjcKGUoQ"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
