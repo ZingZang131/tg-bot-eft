@@ -1,3 +1,4 @@
+import os 
 import asyncio
 import aiohttp
 import re
@@ -13,7 +14,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # TOKEN
 # ====================================
 
-TOKEN = "8692576209:AAGqLuym96IhMsmzkhoRg1J2cc3kjcKGUoQ"
+TOKEN = os.getenv('Bot_token') 
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
