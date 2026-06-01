@@ -33,6 +33,18 @@ def get_user_info(user):
         parts.append(user.last_name)
     return " | ".join(parts)
 
+# Универсальная функция для безопасного редактирования сообщений
+async def safe_edit_message(message, text, reply_markup=None, parse_mode="Markdown"):
+    """Редактирует сообщение, игнорируя ошибку 'message is not modified'"""
+    try:
+        await message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
+    except Exception as e:
+        if "message is not modified" in str(e):
+            return False
+        else:
+            raise e
+
 # ====================================
 # TOKEN
 # ====================================
@@ -507,11 +519,12 @@ async def main_menu_callback(callback: types.CallbackQuery):
     user_info = get_user_info(user)
     logger.info(f"🏠 MAIN_MENU | {user_info}")
     await callback.answer("Главное меню")
-    await callback.message.edit_text(
+    
+    await safe_edit_message(
+        callback.message,
         "🎯 **TARKOV ASSISTANT v4.0**\n\n"
         "Выбирай, бирец:",
-        reply_markup=get_main_keyboard(),
-        parse_mode="Markdown"
+        get_main_keyboard()
     )
 
 
@@ -525,10 +538,11 @@ async def goons_menu_callback(callback: types.CallbackQuery):
     user_info = get_user_info(user)
     logger.info(f"☠ GOONS_MENU | {user_info}")
     await callback.answer("Гуны")
-    await callback.message.edit_text(
+    
+    await safe_edit_message(
+        callback.message,
         "☠ **GOONS TRACKER**\n\nВыберите режим:",
-        reply_markup=get_goons_keyboard(),
-        parse_mode="Markdown"
+        get_goons_keyboard()
     )
 
 @dp.callback_query(lambda c: c.data.startswith("goons_"))
@@ -550,7 +564,8 @@ async def goons_quick_callback(callback: types.CallbackQuery):
         text = f"☠ **GOONS — PvE**\n\n{pve_loc}\n\n🕒 {time_str}"
     else:
         text = f"☠ **GOONS TRACKER**\n\n🎮 PvP:\n{pvp_loc}\n\n🛡️ PvE:\n{pve_loc}\n\n🕒 {time_str}"
-    await callback.message.edit_text(text, reply_markup=get_refresh_keyboard(), parse_mode="Markdown")
+    
+    await safe_edit_message(callback.message, text, get_refresh_keyboard())
 
 @dp.message(Command("goons"))
 async def goons(message: types.Message):
@@ -588,7 +603,8 @@ async def refresh_callback(callback: types.CallbackQuery):
         text = f"☠ **GOONS — PvE**\n\n{pve_loc}\n\n🕒 {time_str}"
     else:
         text = f"☠ **GOONS**\n\n🎮 PvP:\n{pvp_loc}\n\n🛡️ PvE:\n{pve_loc}\n\n🕒 {time_str}"
-    await callback.message.edit_text(text, reply_markup=get_refresh_keyboard(), parse_mode="Markdown")
+    
+    await safe_edit_message(callback.message, text, get_refresh_keyboard())
 
 
 # ====================================
@@ -615,7 +631,7 @@ async def random_loadout_callback(callback: types.CallbackQuery):
     logger.info(f"🎲 LOADOUT | {user_info} | Tier: {loadout['tier']} | Map: {loadout['map']}")
     
     text = format_loadout_text(loadout)
-    await callback.message.edit_text(text, reply_markup=get_loadout_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback.message, text, get_loadout_keyboard())
 
 
 # ====================================
@@ -650,13 +666,13 @@ async def pmc_name_callback(callback: types.CallbackQuery):
     builder.row(InlineKeyboardButton(text="🎖 Ещё ник", callback_data="pmc_name"))
     builder.row(InlineKeyboardButton(text="🔙 В меню", callback_data="main_menu"))
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback.message,
         f"🎖 **ГЕНЕРАТОР PMC НИКА**\n\n"
         f"Твой новый ник:\n"
         f"`{name}`\n\n"
         f"_Готов к рейду, бирец?_",
-        reply_markup=builder.as_markup(),
-        parse_mode="Markdown"
+        builder.as_markup()
     )
 
 
@@ -707,7 +723,7 @@ async def send_question(message, user_id):
         if isinstance(message, types.Message):
             await message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
         else:
-            await message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+            await safe_edit_message(message, text, builder.as_markup())
         
         if user_id in user_tests:
             del user_tests[user_id]
@@ -729,7 +745,7 @@ async def send_question(message, user_id):
     if isinstance(message, types.Message):
         await message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
     else:
-        await message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+        await safe_edit_message(message, text, builder.as_markup())
 
 @dp.callback_query(lambda c: c.data.startswith("rat_chad_answer_"))
 async def rat_chad_answer_callback(callback: types.CallbackQuery):
@@ -795,7 +811,7 @@ async def send_news(message):
     if isinstance(message, types.Message):
         await message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
     else:
-        await message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+        await safe_edit_message(message, text, builder.as_markup())
 
 
 # ====================================
