@@ -17,13 +17,21 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
-    handlers=[
-        logging.FileHandler('tarkov_bot.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s | %(levelname)s | %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Функция для получения информации о пользователе
+def get_user_info(user):
+    """Возвращает подробную информацию о пользователе"""
+    parts = [str(user.id)]
+    if user.username:
+        parts.append(f"@{user.username}")
+    if user.first_name:
+        parts.append(user.first_name)
+    if user.last_name:
+        parts.append(user.last_name)
+    return " | ".join(parts)
 
 # ====================================
 # TOKEN
@@ -474,7 +482,8 @@ def get_back_keyboard():
 @dp.message(Command("start"))
 async def start(message: types.Message):
     user = message.from_user
-    logger.info(f"Пользователь {user.id} (@{user.username}) запустил бота")
+    user_info = get_user_info(user)
+    logger.info(f"🚀 START | {user_info}")
     await message.answer(
         "🎯 **TARKOV ASSISTANT v4.0**\n\n"
         "☠ Отслеживание гунов\n"
@@ -495,7 +504,8 @@ async def start(message: types.Message):
 @dp.callback_query(lambda c: c.data == "main_menu")
 async def main_menu_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} вернулся в главное меню")
+    user_info = get_user_info(user)
+    logger.info(f"🏠 MAIN_MENU | {user_info}")
     await callback.answer("Главное меню")
     await callback.message.edit_text(
         "🎯 **TARKOV ASSISTANT v4.0**\n\n"
@@ -512,7 +522,8 @@ async def main_menu_callback(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data == "goons_menu")
 async def goons_menu_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} открыл меню Гунов")
+    user_info = get_user_info(user)
+    logger.info(f"☠ GOONS_MENU | {user_info}")
     await callback.answer("Гуны")
     await callback.message.edit_text(
         "☠ **GOONS TRACKER**\n\nВыберите режим:",
@@ -524,13 +535,15 @@ async def goons_menu_callback(callback: types.CallbackQuery):
 async def goons_quick_callback(callback: types.CallbackQuery):
     mode = callback.data.split("_")[1]
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} проверил Гунов (режим: {mode})")
+    user_info = get_user_info(user)
+    logger.info(f"☠ GOONS_CHECK | {user_info} | Mode: {mode}")
     
     if mode in ["pvp", "pve", "all"]:
         user_mode[user.id] = mode
     await callback.answer("Загружаю...")
     pvp_loc, pve_loc = await get_goons()
     time_str = datetime.now().strftime('%H:%M:%S')
+    
     if mode == "pvp":
         text = f"☠ **GOONS — PvP**\n\n{pvp_loc}\n\n🕒 {time_str}"
     elif mode == "pve":
@@ -542,9 +555,10 @@ async def goons_quick_callback(callback: types.CallbackQuery):
 @dp.message(Command("goons"))
 async def goons(message: types.Message):
     user = message.from_user
+    user_info = get_user_info(user)
     user_id = user.id
     mode_filter = user_mode.get(user_id, "all")
-    logger.info(f"Пользователь {user.id} запросил Гунов через команду (режим: {mode_filter})")
+    logger.info(f"☠ GOONS_CMD | {user_info} | Mode: {mode_filter}")
     
     msg = await message.answer("🔍 Загружаю данные...")
     pvp_loc, pve_loc = await get_goons()
@@ -560,9 +574,10 @@ async def goons(message: types.Message):
 @dp.callback_query(lambda c: c.data == "refresh_goons")
 async def refresh_callback(callback: types.CallbackQuery):
     user = callback.from_user
+    user_info = get_user_info(user)
     user_id = user.id
     mode_filter = user_mode.get(user_id, "all")
-    logger.info(f"Пользователь {user.id} обновил данные Гунов (режим: {mode_filter})")
+    logger.info(f"🔄 REFRESH_GOONS | {user_info} | Mode: {mode_filter}")
     
     await callback.answer("Обновляю...")
     pvp_loc, pve_loc = await get_goons()
@@ -583,19 +598,22 @@ async def refresh_callback(callback: types.CallbackQuery):
 @dp.message(Command("roll"))
 async def roll_command(message: types.Message):
     user = message.from_user
-    logger.info(f"Пользователь {user.id} запросил рандом лодаут через команду")
-    
+    user_info = get_user_info(user)
     loadout = generate_loadout()
+    logger.info(f"🎲 LOADOUT_CMD | {user_info} | Tier: {loadout['tier']} | Map: {loadout['map']}")
+    
     text = format_loadout_text(loadout)
     await message.answer(text, reply_markup=get_loadout_keyboard(), parse_mode="Markdown")
 
 @dp.callback_query(lambda c: c.data == "random_loadout")
 async def random_loadout_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} запросил рандом лодаут")
+    user_info = get_user_info(user)
     
     await callback.answer("Крутим лодаут...")
     loadout = generate_loadout()
+    logger.info(f"🎲 LOADOUT | {user_info} | Tier: {loadout['tier']} | Map: {loadout['map']}")
+    
     text = format_loadout_text(loadout)
     await callback.message.edit_text(text, reply_markup=get_loadout_keyboard(), parse_mode="Markdown")
 
@@ -607,9 +625,10 @@ async def random_loadout_callback(callback: types.CallbackQuery):
 @dp.message(Command("nick"))
 async def nick_command(message: types.Message):
     user = message.from_user
-    logger.info(f"Пользователь {user.id} запросил генератор ника через команду")
-    
+    user_info = get_user_info(user)
     name = generate_pmc_name()
+    logger.info(f"🎖 NICK_CMD | {user_info} | Generated: {name}")
+    
     await message.answer(
         f"🎖 **Твой PMC ник:**\n\n"
         f"`{name}`\n\n"
@@ -621,10 +640,11 @@ async def nick_command(message: types.Message):
 @dp.callback_query(lambda c: c.data == "pmc_name")
 async def pmc_name_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} сгенерировал новый ник")
+    user_info = get_user_info(user)
+    name = generate_pmc_name()
+    logger.info(f"🎖 NICK_GEN | {user_info} | Generated: {name}")
     
     await callback.answer("Генерирую ник...")
-    name = generate_pmc_name()
     
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="🎖 Ещё ник", callback_data="pmc_name"))
@@ -647,13 +667,15 @@ async def pmc_name_callback(callback: types.CallbackQuery):
 @dp.message(Command("test"))
 async def test_command(message: types.Message):
     user = message.from_user
-    logger.info(f"Пользователь {user.id} запустил тест Крыса/Чад")
+    user_info = get_user_info(user)
+    logger.info(f"🐀 TEST_START_CMD | {user_info}")
     await start_rat_chad_test(message)
 
 @dp.callback_query(lambda c: c.data == "rat_chad_test")
 async def rat_chad_test_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} запустил тест Крыса/Чад через кнопку")
+    user_info = get_user_info(user)
+    logger.info(f"🐀 TEST_START | {user_info}")
     await start_rat_chad_test(callback.message)
     await callback.answer("Начинаем тест!")
 
@@ -713,9 +735,10 @@ async def send_question(message, user_id):
 async def rat_chad_answer_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user = callback.from_user
+    user_info = get_user_info(user)
     
     if user_id not in user_tests:
-        logger.warning(f"Пользователь {user.id} пытался ответить на тест, но тест не найден")
+        logger.warning(f"⚠️ TEST_NOT_FOUND | {user_info}")
         await callback.answer("Тест не найден. Начни заново: /test")
         return
     
@@ -727,7 +750,7 @@ async def rat_chad_answer_callback(callback: types.CallbackQuery):
     user_tests[user_id]["answers"].append(score)
     user_tests[user_id]["current_question"] = question_num + 1
     
-    logger.info(f"Пользователь {user.id} ответил на вопрос {question_num + 1} теста (очки: {score})")
+    logger.info(f"📝 TEST_ANSWER | {user_info} | Q{question_num + 1}/{len(RAT_CHAD_QUESTIONS)} | Score: {score}")
     await callback.answer(f"Ответ принят! ({question_num + 1}/{len(RAT_CHAD_QUESTIONS)})")
     
     await send_question(callback.message, user_id)
@@ -740,13 +763,15 @@ async def rat_chad_answer_callback(callback: types.CallbackQuery):
 @dp.message(Command("news"))
 async def news_command(message: types.Message):
     user = message.from_user
-    logger.info(f"Пользователь {user.id} запросил новости через команду")
+    user_info = get_user_info(user)
+    logger.info(f"📰 NEWS_CMD | {user_info}")
     await send_news(message)
 
 @dp.callback_query(lambda c: c.data == "tarkov_news")
 async def tarkov_news_callback(callback: types.CallbackQuery):
     user = callback.from_user
-    logger.info(f"Пользователь {user.id} запросил новости")
+    user_info = get_user_info(user)
+    logger.info(f"📰 NEWS | {user_info}")
     await send_news(callback.message)
     await callback.answer("Загружаю новости...")
 
@@ -783,7 +808,7 @@ async def main():
     logger.info("☠ Goons + 🎲 Loadouts + 🐀 Rat/Chad + 🎖 Nick + 📰 News")
     logger.info("="*50)
     
-    print("\n📡 Бот запущен... Логи пишутся в файл tarkov_bot.log\n")
+    print("\n📡 Бот запущен... Логи смотрятся в веб-интерфейсе Railway\n")
     
     await dp.start_polling(bot)
 
