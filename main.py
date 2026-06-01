@@ -3,12 +3,27 @@ import asyncio
 import aiohttp
 import re
 import random
+import logging
 from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+# ====================================
+# НАСТРОЙКА ЛОГИРОВАНИЯ
+# ====================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    handlers=[
+        logging.FileHandler('tarkov_bot.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # ====================================
 # TOKEN
@@ -376,15 +391,12 @@ def generate_pmc_name():
     """Генерирует случайный PMC ник"""
     choice = random.random()
     if choice < 0.4:
-        # Серьёзный ник
         prefix = random.choice(PMC_PREFIXES)
         suffix = random.choice(PMC_SUFFIXES)
         return f"{prefix}_{suffix}"
     elif choice < 0.7:
-        # Смешной ник
         return random.choice(PMC_FUNNY_NAMES)
     else:
-        # С ироничным номером
         prefix = random.choice(PMC_PREFIXES)
         suffix = random.choice(PMC_SUFFIXES)
         number = random.randint(1, 9999)
@@ -461,6 +473,8 @@ def get_back_keyboard():
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    user = message.from_user
+    logger.info(f"Пользователь {user.id} (@{user.username}) запустил бота")
     await message.answer(
         "🎯 **TARKOV ASSISTANT v4.0**\n\n"
         "☠ Отслеживание гунов\n"
@@ -480,6 +494,8 @@ async def start(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "main_menu")
 async def main_menu_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} вернулся в главное меню")
     await callback.answer("Главное меню")
     await callback.message.edit_text(
         "🎯 **TARKOV ASSISTANT v4.0**\n\n"
@@ -495,6 +511,8 @@ async def main_menu_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "goons_menu")
 async def goons_menu_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} открыл меню Гунов")
     await callback.answer("Гуны")
     await callback.message.edit_text(
         "☠ **GOONS TRACKER**\n\nВыберите режим:",
@@ -505,9 +523,11 @@ async def goons_menu_callback(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("goons_"))
 async def goons_quick_callback(callback: types.CallbackQuery):
     mode = callback.data.split("_")[1]
-    user_id = callback.from_user.id
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} проверил Гунов (режим: {mode})")
+    
     if mode in ["pvp", "pve", "all"]:
-        user_mode[user_id] = mode
+        user_mode[user.id] = mode
     await callback.answer("Загружаю...")
     pvp_loc, pve_loc = await get_goons()
     time_str = datetime.now().strftime('%H:%M:%S')
@@ -521,8 +541,11 @@ async def goons_quick_callback(callback: types.CallbackQuery):
 
 @dp.message(Command("goons"))
 async def goons(message: types.Message):
-    user_id = message.from_user.id
+    user = message.from_user
+    user_id = user.id
     mode_filter = user_mode.get(user_id, "all")
+    logger.info(f"Пользователь {user.id} запросил Гунов через команду (режим: {mode_filter})")
+    
     msg = await message.answer("🔍 Загружаю данные...")
     pvp_loc, pve_loc = await get_goons()
     time_str = datetime.now().strftime('%H:%M:%S')
@@ -536,8 +559,11 @@ async def goons(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "refresh_goons")
 async def refresh_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+    user = callback.from_user
+    user_id = user.id
     mode_filter = user_mode.get(user_id, "all")
+    logger.info(f"Пользователь {user.id} обновил данные Гунов (режим: {mode_filter})")
+    
     await callback.answer("Обновляю...")
     pvp_loc, pve_loc = await get_goons()
     time_str = datetime.now().strftime('%H:%M:%S')
@@ -556,12 +582,18 @@ async def refresh_callback(callback: types.CallbackQuery):
 
 @dp.message(Command("roll"))
 async def roll_command(message: types.Message):
+    user = message.from_user
+    logger.info(f"Пользователь {user.id} запросил рандом лодаут через команду")
+    
     loadout = generate_loadout()
     text = format_loadout_text(loadout)
     await message.answer(text, reply_markup=get_loadout_keyboard(), parse_mode="Markdown")
 
 @dp.callback_query(lambda c: c.data == "random_loadout")
 async def random_loadout_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} запросил рандом лодаут")
+    
     await callback.answer("Крутим лодаут...")
     loadout = generate_loadout()
     text = format_loadout_text(loadout)
@@ -574,6 +606,9 @@ async def random_loadout_callback(callback: types.CallbackQuery):
 
 @dp.message(Command("nick"))
 async def nick_command(message: types.Message):
+    user = message.from_user
+    logger.info(f"Пользователь {user.id} запросил генератор ника через команду")
+    
     name = generate_pmc_name()
     await message.answer(
         f"🎖 **Твой PMC ник:**\n\n"
@@ -585,10 +620,12 @@ async def nick_command(message: types.Message):
 
 @dp.callback_query(lambda c: c.data == "pmc_name")
 async def pmc_name_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} сгенерировал новый ник")
+    
     await callback.answer("Генерирую ник...")
     name = generate_pmc_name()
     
-    # Кнопка "Ещё ник"
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="🎖 Ещё ник", callback_data="pmc_name"))
     builder.row(InlineKeyboardButton(text="🔙 В меню", callback_data="main_menu"))
@@ -609,10 +646,14 @@ async def pmc_name_callback(callback: types.CallbackQuery):
 
 @dp.message(Command("test"))
 async def test_command(message: types.Message):
+    user = message.from_user
+    logger.info(f"Пользователь {user.id} запустил тест Крыса/Чад")
     await start_rat_chad_test(message)
 
 @dp.callback_query(lambda c: c.data == "rat_chad_test")
 async def rat_chad_test_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} запустил тест Крыса/Чад через кнопку")
     await start_rat_chad_test(callback.message)
     await callback.answer("Начинаем тест!")
 
@@ -620,7 +661,6 @@ async def start_rat_chad_test(message):
     """Запуск теста Крыса/Чад"""
     user_id = message.from_user.id if isinstance(message, types.Message) else message.chat.id
     
-    # Инициализируем тест
     user_tests[user_id] = {
         "answers": [],
         "current_question": 0
@@ -634,7 +674,6 @@ async def send_question(message, user_id):
     question_num = test_data.get("current_question", 0)
     
     if question_num >= len(RAT_CHAD_QUESTIONS):
-        # Тест закончен, показываем результат
         result = calculate_rat_chad(test_data.get("answers", []))
         
         builder = InlineKeyboardBuilder()
@@ -648,14 +687,12 @@ async def send_question(message, user_id):
         else:
             await message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
         
-        # Очищаем тест
         if user_id in user_tests:
             del user_tests[user_id]
         return
     
     question = RAT_CHAD_QUESTIONS[question_num]
     
-    # Создаём кнопки с ответами
     builder = InlineKeyboardBuilder()
     for i, (answer_text, _) in enumerate(question["answers"]):
         builder.row(InlineKeyboardButton(
@@ -675,24 +712,24 @@ async def send_question(message, user_id):
 @dp.callback_query(lambda c: c.data.startswith("rat_chad_answer_"))
 async def rat_chad_answer_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user = callback.from_user
     
     if user_id not in user_tests:
+        logger.warning(f"Пользователь {user.id} пытался ответить на тест, но тест не найден")
         await callback.answer("Тест не найден. Начни заново: /test")
         return
     
-    # Парсим ответ
     parts = callback.data.split("_")
     question_num = int(parts[3])
     answer_num = int(parts[4])
     
-    # Сохраняем ответ
     score = RAT_CHAD_QUESTIONS[question_num]["answers"][answer_num][1]
     user_tests[user_id]["answers"].append(score)
     user_tests[user_id]["current_question"] = question_num + 1
     
+    logger.info(f"Пользователь {user.id} ответил на вопрос {question_num + 1} теста (очки: {score})")
     await callback.answer(f"Ответ принят! ({question_num + 1}/{len(RAT_CHAD_QUESTIONS)})")
     
-    # Отправляем следующий вопрос
     await send_question(callback.message, user_id)
 
 
@@ -702,16 +739,19 @@ async def rat_chad_answer_callback(callback: types.CallbackQuery):
 
 @dp.message(Command("news"))
 async def news_command(message: types.Message):
+    user = message.from_user
+    logger.info(f"Пользователь {user.id} запросил новости через команду")
     await send_news(message)
 
 @dp.callback_query(lambda c: c.data == "tarkov_news")
 async def tarkov_news_callback(callback: types.CallbackQuery):
+    user = callback.from_user
+    logger.info(f"Пользователь {user.id} запросил новости")
     await send_news(callback.message)
     await callback.answer("Загружаю новости...")
 
 async def send_news(message):
     """Отправка новостей Tarkov"""
-    # Выбираем 3 случайные новости
     selected_news = random.sample(TARKOV_NEWS, min(3, len(TARKOV_NEWS)))
     
     text = "📰 **НОВОСТИ TARKOV**\n\n"
@@ -738,13 +778,20 @@ async def send_news(message):
 # ====================================
 
 async def main():
-    print("="*50)
-    print("🎯 TARKOV ASSISTANT v4.0")
-    print("☠ Goons + 🎲 Loadouts + 🐀 Rat/Chad + 🎖 Nick + 📰 News")
-    print("="*50)
-    print("\n📡 Бот запущен...\n")
+    logger.info("="*50)
+    logger.info("🎯 TARKOV ASSISTANT v4.0 ЗАПУЩЕН")
+    logger.info("☠ Goons + 🎲 Loadouts + 🐀 Rat/Chad + 🎖 Nick + 📰 News")
+    logger.info("="*50)
+    
+    print("\n📡 Бот запущен... Логи пишутся в файл tarkov_bot.log\n")
+    
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен пользователем")
+    except Exception as e:
+        logger.error(f"Критическая ошибка: {e}", exc_info=True)
